@@ -8,7 +8,7 @@ require('@nomiclabs/hardhat-solhint');
 require('hardhat-contract-sizer');
 require('@openzeppelin/hardhat-upgrades');
 
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const PRIVATE_KEY = process.env.PK;
 
 module.exports = {
   solidity: {
@@ -18,6 +18,7 @@ module.exports = {
         enabled: true,
         runs: 200,
       },
+      evmVersion: 'byzantium',
     },
   },
   gasReporter: {
@@ -26,24 +27,24 @@ module.exports = {
     gasPrice: 50,
   },
   networks: {
-    mainnet: {
-      url: `https://rpcapi.fantom.network`,
-      chainId: 250,
-      accounts: [`0x${PRIVATE_KEY}`]
-    },
+    // mainnet: {
+    //   url: `https://rpcapi.fantom.network`,
+    //   chainId: 250,
+    //   accounts: [`0x${PRIVATE_KEY}`]
+    // },
     testnet: {
-      url: `https://rpcapi-tracing.testnet.fantom.network`,
-      chainId: 4002,
+      url: `https://gwan-ssl.wandevs.org:46891`,
+      chainId: 999,
       accounts: [`0x${PRIVATE_KEY}`]
     },
-    ropsten: {
-      url: `https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161`,
-      chainId: 3,
-      accounts: [`0x${PRIVATE_KEY}`],
-    },
-    coverage: {
-      url: 'http://localhost:8555',
-    },
+    // ropsten: {
+    //   url: `https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161`,
+    //   chainId: 3,
+    //   accounts: [`0x${PRIVATE_KEY}`],
+    // },
+    // coverage: {
+    //   url: 'http://localhost:8555',
+    // },
     
     localhost: {
       url: `http://127.0.0.1:8545`
