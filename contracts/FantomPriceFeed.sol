@@ -12,10 +12,14 @@ interface IFantomTokenRegistry {
     function enabled(address) external returns (bool);
 }
 
-interface IOracle {
-    function decimals() external view returns (uint8);
 
-    function latestAnswer() external view returns (int256);
+interface ISymbol {
+    function symbol() external view returns(string memory);
+    function decimals() external view returns (uint8);
+}
+
+interface IOracle {
+    function getValue(bytes32 key) external view returns(int256);
 }
 
 contract FantomPriceFeed is Ownable {
@@ -74,8 +78,16 @@ contract FantomPriceFeed is Ownable {
             return (0, 0);
         }
 
+        string memory symbol = ISymbol(_token).symbol();
+
+        if (keccak256(bytes(symbol)) == keccak256(bytes("WWAN"))) {
+            symbol = "WAN";
+        }
+
         IOracle oracle = IOracle(oracles[_token]);
-        return (oracle.latestAnswer(), oracle.decimals());
+        int256 price = IOracle(oracle).getValue(stringToBytes32(symbol));
+        uint8 priceDecimals = 18;
+        return (price, priceDecimals);
     }
 
     /**
@@ -87,5 +99,16 @@ contract FantomPriceFeed is Ownable {
         onlyOwner
     {
         addressRegistry = _addressRegistry;
+    }
+
+    function stringToBytes32(string memory source) public pure returns (bytes32 result) {
+        bytes memory tempEmptyStringTest = bytes(source);
+        if (tempEmptyStringTest.length == 0) {
+            return 0x0;
+        }
+
+        assembly {
+            result := mload(add(source, 32))
+        }
     }
 }
