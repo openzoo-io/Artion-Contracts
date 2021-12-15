@@ -574,6 +574,62 @@ contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         delete auctions[_nftAddress][_tokenId];
     }
 
+
+    /**
+     @notice Results an auction that failed to meet the auction.reservePrice
+     @dev Only admin or smart contract
+     @dev Auction can only be fail-resulted if the auction has expired and the auction.reservePrice has not been met
+     @dev If there have been no bids, the auction needs to be cancelled instead using `cancelAuction()`
+     @param _nftAddress ERC 721 Address
+     @param _tokenId Token ID of the item being auctioned
+     */
+    function resultFailedAuction(address _nftAddress, uint256 _tokenId)
+        external
+        nonReentrant
+    {
+        // Check the auction to see if it can be resulted
+        Auction storage auction = auctions[_nftAddress][_tokenId];
+
+        // Store auction owner
+        address seller = auction.owner;
+
+        // Ensure this contract is the owner of the item
+        require(
+            IERC721(_nftAddress).ownerOf(_tokenId) == address(this),
+            "address(this) must be the item owner"
+        );
+
+        // Check if the auction exists
+        require(auction.endTime > 0, "no auction exists");
+
+        // Check if the auction has ended
+        require(_getNow() > auction.endTime, "auction not ended");
+
+        // Ensure auction not already resulted
+        require(!auction.resulted, "auction already resulted");
+
+        // Get info on who the highest bidder is
+        HighestBid storage highestBid = highestBids[_nftAddress][_tokenId];
+        address payable topBidder = highestBid.bidder;
+        uint256 topBid = highestBid.bid;
+
+        // Ensure _msgSender() is either auction topBidder or seller
+        require(
+            _msgSender() == topBidder || _msgSender() == seller,
+            "_msgSender() must be auction topBidder or seller"
+        );
+
+        // Ensure the topBid is less than the auction.reservePrice
+        require(topBidder != address(0), "no open bids");
+        require(
+            topBid < auction.reservePrice,
+            "highest bid is >= reservePrice"
+        );
+
+        _cancelAuction(_nftAddress, _tokenId, seller);
+    }
+
+
     /**
      @notice Cancels and inflight and un-resulted auctions, returning the funds to the top bidder if found
      @dev Only item owner
@@ -597,7 +653,14 @@ contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Check auction not already resulted
         require(!auction.resulted, "auction already resulted");
 
-        _cancelAuction(_nftAddress, _tokenId);
+        // Gets info on auction and ensures highest bid is less than the reserve price
+        HighestBid storage highestBid = highestBids[_nftAddress][_tokenId];
+        require(
+            highestBid.bid < auction.reservePrice,
+            "Highest bid is currently above reserve price"
+        );
+
+        _cancelAuction(_nftAddress, _tokenId, _msgSender());
     }
 
     /**
@@ -879,7 +942,7 @@ contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         emit AuctionCreated(_nftAddress, _tokenId, _payToken);
     }
 
-    function _cancelAuction(address _nftAddress, uint256 _tokenId) private {
+    function _cancelAuction(address _nftAddress, uint256 _tokenId, address owner) private {
         // refund existing top bidder if found
         HighestBid storage highestBid = highestBids[_nftAddress][_tokenId];
         if (highestBid.bidder != address(0)) {
@@ -896,6 +959,13 @@ contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         // Remove auction and top bidder
         delete auctions[_nftAddress][_tokenId];
+
+        // Transfer the NFT ownership back to _msgSender()
+        IERC721(_nftAddress).safeTransferFrom(
+            IERC721(_nftAddress).ownerOf(_tokenId),
+            owner,
+            _tokenId
+        );
 
         emit AuctionCancelled(_nftAddress, _tokenId);
     }
