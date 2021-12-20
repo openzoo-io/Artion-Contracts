@@ -453,6 +453,120 @@ contract FantomMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         delete (listings[_nftAddress][_tokenId][_owner]);
     }
 
+        /// @notice Method for buying listed NFT
+    /// @param _nftAddress NFT contract address
+    /// @param _tokenId TokenId
+    function buyItemWithQuantity(
+        address _nftAddress,
+        uint256 _tokenId,
+        address _payToken,
+        address _owner,
+        uint256 _quantity
+    )
+        external
+        nonReentrant
+        isListed(_nftAddress, _tokenId, _owner)
+        validListing(_nftAddress, _tokenId, _owner)
+    {
+        Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
+        require(listedItem.payToken == _payToken, "invalid pay token");
+
+        _buyItemWithQuantity(_nftAddress, _tokenId, _payToken, _owner, _quantity);
+    }
+
+    function _buyItemWithQuantity(
+        address _nftAddress,
+        uint256 _tokenId,
+        address _payToken,
+        address _owner,
+        uint256 _quantity
+    ) private {
+        Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
+
+        require(_quantity <= listedItem.quantity, "Out of quantity");
+
+        uint256 price = listedItem.pricePerItem.mul(_quantity);
+        uint256 feeAmount = price.mul(platformFee).div(1e3);
+
+        IERC20(_payToken).safeTransferFrom(
+            _msgSender(),
+            feeReceipient,
+            feeAmount
+        );
+
+        address minter = minters[_nftAddress][_tokenId];
+        uint16 royalty = royalties[_nftAddress][_tokenId];
+        if (minter != address(0) && royalty != 0) {
+            uint256 royaltyFee = price.sub(feeAmount).mul(royalty).div(10000);
+
+            IERC20(_payToken).safeTransferFrom(
+                _msgSender(),
+                minter,
+                royaltyFee
+            );
+
+            feeAmount = feeAmount.add(royaltyFee);
+        } else {
+            minter = collectionRoyalties[_nftAddress].feeRecipient;
+            royalty = collectionRoyalties[_nftAddress].royalty;
+            if (minter != address(0) && royalty != 0) {
+                uint256 royaltyFee = price.sub(feeAmount).mul(royalty).div(
+                    10000
+                );
+
+                IERC20(_payToken).safeTransferFrom(
+                    _msgSender(),
+                    minter,
+                    royaltyFee
+                );
+
+                feeAmount = feeAmount.add(royaltyFee);
+            }
+        }
+
+        IERC20(_payToken).safeTransferFrom(
+            _msgSender(),
+            _owner,
+            price.sub(feeAmount)
+        );
+
+        // Transfer NFT to buyer
+        if (IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC721)) {
+            IERC721(_nftAddress).safeTransferFrom(
+                _owner,
+                _msgSender(),
+                _tokenId
+            );
+        } else {
+            IERC1155(_nftAddress).safeTransferFrom(
+                _owner,
+                _msgSender(),
+                _tokenId,
+                _quantity,
+                bytes("")
+            );
+        }
+        IFantomBundleMarketplace(addressRegistry.bundleMarketplace())
+            .validateItemSold(_nftAddress, _tokenId, _quantity);
+
+        emit ItemSold(
+            _owner,
+            _msgSender(),
+            _nftAddress,
+            _tokenId,
+            _quantity,
+            _payToken,
+            getPrice(_payToken),
+            price.div(_quantity)
+        );
+
+        if (_quantity == listedItem.quantity) {
+            delete (listings[_nftAddress][_tokenId][_owner]);
+        } else {
+            listedItem.quantity = listedItem.quantity - _quantity;
+        }
+    }
+
     /// @notice Method for offering item
     /// @param _nftAddress NFT contract address
     /// @param _tokenId TokenId
