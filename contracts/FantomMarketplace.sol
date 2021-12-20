@@ -218,7 +218,7 @@ contract FantomMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address _nftAddress,
         uint256 _tokenId,
         address _owner,
-        uint256 _quantity,
+        uint256 _quantity
     ) {
         Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
 
@@ -467,7 +467,7 @@ contract FantomMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         delete (listings[_nftAddress][_tokenId][_owner]);
     }
 
-        /// @notice Method for buying listed NFT
+    /// @notice Method for buying listed NFT
     /// @param _nftAddress NFT contract address
     /// @param _tokenId TokenId
     function buyItemWithQuantity(
@@ -482,9 +482,6 @@ contract FantomMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         isListed(_nftAddress, _tokenId, _owner)
         validListingWithQuantity(_nftAddress, _tokenId, _owner, _quantity)
     {
-        Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
-        require(listedItem.payToken == _payToken, "invalid pay token");
-
         _buyItemWithQuantity(_nftAddress, _tokenId, _payToken, _owner, _quantity);
     }
 
@@ -496,6 +493,8 @@ contract FantomMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _quantity
     ) private {
         Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
+
+        require(listedItem.payToken == _payToken, "invalid pay token");
 
         require(_quantity <= listedItem.quantity, "Out of quantity");
 
