@@ -413,6 +413,14 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
         // Check the auction to see if it can be resulted
         Auction storage auction = auctions[_nftAddress][_tokenId];
 
+        // Store auction owner
+        address seller = auction.owner;
+
+        // Get info on who the highest bidder is
+        HighestBid storage highestBid = highestBids[_nftAddress][_tokenId];
+        address _winner = highestBid.bidder;
+        uint256 _winningBid = highestBid.bid;
+
         // Ensure _msgSender() is either auction winner or seller
         require(
             _msgSender() == _winner || _msgSender() == seller,
@@ -434,15 +442,10 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
         // Ensure auction not already resulted
         require(!auction.resulted, "auction already resulted");
 
-        // Get info on who the highest bidder is
-        HighestBid storage highestBid = highestBids[_nftAddress][_tokenId];
-        address winner = highestBid.bidder;
-        uint256 winningBid = highestBid.bid;
-
         // Ensure there is a winner
-        require(winner != address(0), "no open bids");
+        require(_winner != address(0), "no open bids");
         require(
-            winningBid >= auction.reservePrice,
+            _winningBid >= auction.reservePrice,
             "highest bid is below reservePrice"
         );
 
@@ -460,9 +463,9 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
 
         uint256 payAmount;
 
-        if (winningBid > auction.reservePrice) {
+        if (_winningBid > auction.reservePrice) {
             // Work out total above the reserve
-            uint256 aboveReservePrice = winningBid.sub(auction.reservePrice);
+            uint256 aboveReservePrice = _winningBid.sub(auction.reservePrice);
 
             // Work out platform fee from above reserve amount
             uint256 platformFeeAboveReserve = aboveReservePrice
@@ -487,9 +490,9 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
             }
 
             // Send remaining to designer
-            payAmount = winningBid.sub(platformFeeAboveReserve);
+            payAmount = _winningBid.sub(platformFeeAboveReserve);
         } else {
-            payAmount = winningBid;
+            payAmount = _winningBid;
         }
 
         IFantomMarketplace marketplace = IFantomMarketplace(
@@ -558,23 +561,25 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
         // Transfer the token to the winner
         IERC721(_nftAddress).safeTransferFrom(
             IERC721(_nftAddress).ownerOf(_tokenId),
-            winner,
+            _winner,
             _tokenId
         );
 
         IFantomBundleMarketplace(addressRegistry.bundleMarketplace())
             .validateItemSold(_nftAddress, _tokenId, uint256(1));
 
+        address _marketplace = addressRegistry.marketplace();
+        address _payToken = auction.payToken;
         emit AuctionResulted(
             _msgSender(),
             _nftAddress,
             _tokenId,
-            winner,
-            auction.payToken,
-            IFantomMarketplace(addressRegistry.marketplace()).getPrice(
-                auction.payToken
+            _winner,
+            _payToken,
+            IFantomMarketplace(_marketplace).getPrice(
+                _payToken
             ),
-            winningBid
+            _winningBid
         );
 
         // Remove auction
