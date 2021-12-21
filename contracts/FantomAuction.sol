@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721Holder.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
@@ -52,7 +53,7 @@ interface IFantomTokenRegistry {
 /**
  * @notice Secondary sale auction contract for NFTs
  */
-contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeMath for uint256;
     using AddressUpgradeable for address payable;
     using SafeERC20 for IERC20;
@@ -412,10 +413,16 @@ contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         // Check the auction to see if it can be resulted
         Auction storage auction = auctions[_nftAddress][_tokenId];
 
+        // Ensure _msgSender() is either auction winner or seller
         require(
-            IERC721(_nftAddress).ownerOf(_tokenId) == _msgSender() &&
-                _msgSender() == auction.owner,
-            "sender must be item owner"
+            _msgSender() == _winner || _msgSender() == seller,
+            "_msgSender() must be auction winner or seller"
+        );
+
+        // Ensure this contract is the owner of the item
+        require(
+            IERC721(_nftAddress).ownerOf(_tokenId) == address(this),
+            "address(this) must be the item owner"
         );
 
         // Check the auction real
@@ -644,7 +651,7 @@ contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         Auction memory auction = auctions[_nftAddress][_tokenId];
 
         require(
-            IERC721(_nftAddress).ownerOf(_tokenId) == _msgSender() &&
+            IERC721(_nftAddress).ownerOf(_tokenId) == address(this) &&
                 _msgSender() == auction.owner,
             "sender must be owner"
         );
@@ -713,7 +720,12 @@ contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) external {
         Auction storage auction = auctions[_nftAddress][_tokenId];
 
-        require(_msgSender() == auction.owner, "sender must be item owner");
+        // Ensures the sender owns the auction and the item is currently in escrow
+        require(
+            IERC721(_nftAddress).ownerOf(_tokenId) == address(this) &&
+                _msgSender() == auction.owner,
+            "Sender must be item owner and NFT must be in escrow"
+        );
 
         // Ensure auction not already resulted
         require(!auction.resulted, "auction already resulted");
