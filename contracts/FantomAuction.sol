@@ -928,6 +928,13 @@ contract FantomAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             minimumBid = _reservePrice;
         }
 
+        // Transfer the NFT to the Artion contract to be held in escrow
+        IERC721(_nftAddress).safeTransferFrom(
+            IERC721(_nftAddress).ownerOf(_tokenId),
+            address(this),
+            _tokenId
+        );
+
         // Setup the auction
         auctions[_nftAddress][_tokenId] = Auction({
             owner: _msgSender(),
