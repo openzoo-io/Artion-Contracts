@@ -358,7 +358,7 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
     }
 
     /**
-     @notice Allows the hightest bidder to withdraw the bid (after 12 hours post auction's end) 
+     @notice Allows the hightest bidder to withdraw the bid (after 24 hours post auction's end) 
      @dev Only callable by the existing top bidder
      @param _nftAddress ERC 721 Address
      @param _tokenId Token ID of the item being auctioned
@@ -379,7 +379,7 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
         uint256 _endTime = auctions[_nftAddress][_tokenId].endTime;
 
         require(
-            _getNow() > _endTime && (_getNow() - _endTime >= 43200),
+            _getNow() > _endTime && (_getNow() - _endTime >= 86400),
             "can withdraw only after 12 hours (after auction ended)"
         );
 
