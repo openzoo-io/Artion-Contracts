@@ -423,7 +423,7 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
 
         // Ensure _msgSender() is either auction winner or seller
         require(
-            _msgSender() == _winner || _msgSender() == seller,
+            _msgSender() == _winner || _msgSender() == seller || _msgSender() == operator(),
             "_msgSender() must be auction winner or seller"
         );
 
@@ -627,7 +627,7 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
 
         // Ensure _msgSender() is either auction topBidder or seller
         require(
-            _msgSender() == topBidder || _msgSender() == seller,
+            _msgSender() == topBidder || _msgSender() == seller || _msgSender() == operator(),
             "_msgSender() must be auction topBidder or seller"
         );
 
@@ -657,7 +657,7 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
 
         require(
             IERC721(_nftAddress).ownerOf(_tokenId) == address(this) &&
-                _msgSender() == auction.owner,
+                (_msgSender() == auction.owner || _msgSender() == operator()),
             "sender must be owner"
         );
         // Check auction is real
@@ -1037,5 +1037,24 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
         IERC20 token = IERC20(_tokenContract);
         uint256 balance = token.balanceOf(address(this));
         require(token.transfer(_msgSender(), balance), "Transfer failed");
+    }
+
+    function operatorSlot() public pure returns (bytes32) {
+        return bytes32(uint256(keccak256('openzoo.auction.operator')) - 1);
+    }
+
+    function operator() public view returns (address opt) {
+        bytes32 slot = operatorSlot();
+        assembly {
+            opt := sload(slot)
+        }
+    }
+
+    function setOperator(address newOpt) external onlyOwner {
+        bytes32 slot = operatorSlot();
+
+        assembly {
+            sstore(slot, newOpt)
+        }
     }
 }
