@@ -449,12 +449,6 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
             "highest bid is below reservePrice"
         );
 
-        // Ensure this contract is approved to move the token
-        require(
-            IERC721(_nftAddress).isApprovedForAll(_msgSender(), address(this)),
-            "auction not approved"
-        );
-
         // Result the auction
         auction.resulted = true;
 
@@ -463,19 +457,16 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
 
         uint256 payAmount;
 
-        if (_winningBid > auction.reservePrice) {
-            // Work out total above the reserve
-            uint256 aboveReservePrice = _winningBid.sub(auction.reservePrice);
-
+        if (_winningBid > 0) {
             // Work out platform fee from above reserve amount
-            uint256 platformFeeAboveReserve = aboveReservePrice
+            uint256 platformFeeFromTrade = _winningBid
                 .mul(platformFee)
                 .div(1000);
 
             if (auction.payToken == address(0)) {
                 // Send platform fee
                 (bool platformTransferSuccess, ) = platformFeeRecipient.call{
-                    value: platformFeeAboveReserve
+                    value: platformFeeFromTrade
                 }("");
                 require(platformTransferSuccess, "failed to send platform fee");
             } else {
@@ -483,14 +474,14 @@ contract FantomAuction is ERC721Holder, OwnableUpgradeable, ReentrancyGuardUpgra
                 require(
                     payToken.transfer(
                         platformFeeRecipient,
-                        platformFeeAboveReserve
+                        platformFeeFromTrade
                     ),
                     "failed to send platform fee"
                 );
             }
 
             // Send remaining to designer
-            payAmount = _winningBid.sub(platformFeeAboveReserve);
+            payAmount = _winningBid.sub(platformFeeFromTrade);
         } else {
             payAmount = _winningBid;
         }
