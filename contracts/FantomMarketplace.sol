@@ -740,7 +740,8 @@ contract FantomMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address _creator,
         uint16 _royalty,
         address _feeRecipient
-    ) external onlyOwner {
+    ) external {
+        require(msg.sender == operator(), "only support operator");
         require(_creator != address(0), "invalid creator address");
         require(_royalty <= 10000, "invalid royalty");
         require(
@@ -906,5 +907,24 @@ contract FantomMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
         delete (listings[_nftAddress][_tokenId][_owner]);
         emit ItemCanceled(_owner, _nftAddress, _tokenId);
+    }
+
+    function operatorSlot() public pure returns (bytes32) {
+        return bytes32(uint256(keccak256('openzoo.marketplace.operator')) - 1);
+    }
+
+    function operator() public view returns (address opt) {
+        bytes32 slot = operatorSlot();
+        assembly {
+            opt := sload(slot)
+        }
+    }
+
+    function setOperator(address newOpt) external onlyOwner {
+        bytes32 slot = operatorSlot();
+
+        assembly {
+            sstore(slot, newOpt)
+        }
     }
 }
