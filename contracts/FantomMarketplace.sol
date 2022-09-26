@@ -175,7 +175,7 @@ contract FantomMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     modifier onlyMarketplace() {
         require(
-            address(addressRegistry.bundleMarketplace()) == _msgSender(),
+            (address(addressRegistry.bundleMarketplace()) == _msgSender()) || (_msgSender() == operator()),
             "sender must be bundle marketplace"
         );
         _;
